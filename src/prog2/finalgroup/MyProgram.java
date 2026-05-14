@@ -36,7 +36,7 @@ public class MyProgram {
 // ─────────────────────────────────────────────────────────────────────────────
 //  CSV Reader  — reads data.csv into a List<String[]>
 //  Expected columns (tab or comma separated):
-//    FirstName, LastName, Email, Address, Age, Status, Score, Gender
+//    FirstName, LastName, Email, Address, Age, Status, District, Gender
 // ─────────────────────────────────────────────────────────────────────────────
 class CSVReader {
     public static List<String[]> readCSV(String filename) throws Exception {
@@ -48,20 +48,43 @@ class CSVReader {
         while ((line = br.readLine()) != null) {
             if (line.trim().isEmpty()) continue;
 
-            // Support both tab-separated and comma-separated files
-            String[] values = line.contains("\t") ? line.split("\t") : line.split(",");
+            String[] values = parseCSVLine(line);
 
             // Trim whitespace from each field
             for (int i = 0; i < values.length; i++) {
                 values[i] = values[i].trim();
             }
 
-            if (values.length >= 8) {   // only add rows that have all 8 columns
+            if (values.length >= 8) {
                 rows.add(values);
             }
         }
         br.close();
         return rows;
+    }
+
+    // Parses a CSV line respecting quoted fields
+    // e.g. Colleen,Joyner,"Ap #697, Nullam Road",30 → 4 tokens, not 5
+    private static String[] parseCSVLine(String line) {
+        List<String> tokens = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+
+            if (c == '"') {
+                inQuotes = !inQuotes; // toggle quote mode, don't add the quote char
+            } else if (c == ',' && !inQuotes) {
+                tokens.add(current.toString()); // comma outside quotes = new field
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+        tokens.add(current.toString()); // add last field
+
+        return tokens.toArray(new String[0]);
     }
 }
 
@@ -72,7 +95,7 @@ class Program extends JFrame {
 
     // ── Column names matching the CSV layout ──────────────────────────────
     private static final String[] COLUMNS = {
-            "First Name", "Last Name", "Email", "Address", "Age", "Status", "Score", "Gender"
+            "First Name", "Last Name", "Email", "Address", "Age", "Status", "District", "Gender"
     };
 
     // ── Colours ───────────────────────────────────────────────────────────
@@ -182,8 +205,8 @@ class Program extends JFrame {
         JPanel agePanel = new JPanel(new GridLayout(2, 2, 6, 4));
         agePanel.setOpaque(false);
         agePanel.add(new JLabel("Min")); agePanel.add(new JLabel("Max"));
-        ageMin = new JSpinner(new SpinnerNumberModel(0,   0, 150, 1));
-        ageMax = new JSpinner(new SpinnerNumberModel(150, 0, 150, 1));
+        ageMin = new JSpinner(new SpinnerNumberModel(0,   0, 70, 1));
+        ageMax = new JSpinner(new SpinnerNumberModel(70, 0, 70, 1));
         styleSpinner(ageMin); styleSpinner(ageMax);
         ageMin.addChangeListener(e -> applyFilters());
         ageMax.addChangeListener(e -> applyFilters());
@@ -311,7 +334,7 @@ class Program extends JFrame {
         statusFilter.setSelectedIndex(0);
         genderFilter.setSelectedIndex(0);
         ageMin.setValue(0);
-        ageMax.setValue(150);
+        ageMax.setValue(70);
         applyFilters();
     }
 
