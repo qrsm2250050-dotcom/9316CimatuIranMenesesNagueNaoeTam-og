@@ -1,3 +1,5 @@
+
+
 package prog2.finalgroup;
 import javax.swing.*;
 import java.io.*;
@@ -8,9 +10,11 @@ public class MyProgram {
     }
 }
 
+
 class Program extends JFrame {
 
 }
+
 
 class CSVReader {
     public static void main(String[] args) throws Exception {
@@ -31,3 +35,5 @@ class CSVReader {
         }
     }
 }
+
+
