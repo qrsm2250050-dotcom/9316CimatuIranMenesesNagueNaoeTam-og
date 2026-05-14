@@ -134,9 +134,22 @@ class Program extends JFrame {
 
     // Filter widgets
     private JTextField nameField;
-    private JComboBox<String> statusFilter;
-    private JComboBox<String> genderFilter;
+
+    // Sort
+    private JCheckBox sortAZ, sortZA;
+
+    // Age range (18–70)
     private JTextField ageMinField, ageMaxField;
+
+    // Status
+    private JCheckBox cbResident, cbNonResident;
+
+    // District (1–20)
+    private JTextField districtField;
+
+    // Gender
+    private JCheckBox cbMale, cbFemale;
+
 
     // Sidebar toggle
     private JPanel sidebarPanel;
@@ -241,53 +254,72 @@ class Program extends JFrame {
         heading.setAlignmentX(LEFT_ALIGNMENT);
         outer.add(heading);
 
-        // ── Name ──
-        outer.add(sectionLabel("Name"));
-        nameField = buildTextField("Search by first or last name…");
+        // ── Name Search ─────────────────────────────────────────────────
+        outer.add(sectionLabel("Search"));
+        nameField = buildTextField("Search by first or last name...");
         nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-        nameField.addActionListener(e -> applyFilters()); // Enter key
+        nameField.getDocument().addDocumentListener(new LiveDocListener(this::applyFilters));
         outer.add(padded(nameField));
         outer.add(Box.createVerticalStrut(4));
-
-        RoundedButton searchBtn = new RoundedButton("Search", ACCENT, ACCENT_HOV, 18);
-        searchBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-        searchBtn.setAlignmentX(LEFT_ALIGNMENT);
-        searchBtn.addActionListener(e -> applyFilters());
-        outer.add(padded(searchBtn));
-
-        outer.add(Box.createVerticalStrut(6));
         outer.add(divider());
 
-        // ── Status ──
-        outer.add(sectionLabel("Status"));
-        statusFilter = buildCombo(new String[]{"All", "Resident", "Non-Resident"});
-        statusFilter.addActionListener(e -> applyFilters());
-        outer.add(padded(statusFilter));
-
-        outer.add(Box.createVerticalStrut(6));
+        // ── Sort Order ───────────────────────────────────────────────────
+        outer.add(sectionLabel("Sort Order"));
+        sortAZ = styledCheckBox("A → Z  (Last Name)");
+        sortZA = styledCheckBox("Z → A  (Last Name)");
+        sortAZ.addActionListener(e -> { if (sortAZ.isSelected()) sortZA.setSelected(false); applyFilters(); });
+        sortZA.addActionListener(e -> { if (sortZA.isSelected()) sortAZ.setSelected(false); applyFilters(); });
+        outer.add(padded(sortAZ));
+        outer.add(padded(sortZA));
+        outer.add(Box.createVerticalStrut(4));
         outer.add(divider());
 
-        // ── Gender ──
-        outer.add(sectionLabel("Gender"));
-        genderFilter = buildCombo(new String[]{"All", "Male", "Female"});
-        genderFilter.addActionListener(e -> applyFilters());
-        outer.add(padded(genderFilter));
-
-        outer.add(Box.createVerticalStrut(6));
-        outer.add(divider());
-
-        // ── Age Range ──
-        outer.add(sectionLabel("Age Range"));
-        ageMinField = buildTextField("Min age");
-        ageMaxField = buildTextField("Max age");
-        ageMinField.addActionListener(e -> applyFilters()); // Enter key
-        ageMaxField.addActionListener(e -> applyFilters());
-
+        // ── Age Range (18–70) ────────────────────────────────────────────
+        outer.add(sectionLabel("Age Range  (18 – 70)"));
+        ageMinField = buildTextField("Min  (18)");
+        ageMaxField = buildTextField("Max  (70)");
+        ageMinField.getDocument().addDocumentListener(new LiveDocListener(this::applyFilters));
+        ageMaxField.getDocument().addDocumentListener(new LiveDocListener(this::applyFilters));
         JPanel ageRow = new JPanel(new GridLayout(1, 2, 10, 0));
         ageRow.setOpaque(false);
         ageRow.add(labeledField("Min", ageMinField));
         ageRow.add(labeledField("Max", ageMaxField));
         outer.add(padded(ageRow));
+        outer.add(Box.createVerticalStrut(4));
+        outer.add(divider());
+
+        // ── Status ───────────────────────────────────────────────────────
+        outer.add(sectionLabel("Status"));
+        cbResident    = styledCheckBox("Resident");
+        cbNonResident = styledCheckBox("Non-Resident");
+        cbResident.setSelected(true);
+        cbNonResident.setSelected(true);
+        cbResident.addActionListener(e -> applyFilters());
+        cbNonResident.addActionListener(e -> applyFilters());
+        outer.add(padded(cbResident));
+        outer.add(padded(cbNonResident));
+        outer.add(Box.createVerticalStrut(4));
+        outer.add(divider());
+
+        // ── District (1–20) ──────────────────────────────────────────────
+        outer.add(sectionLabel("District  (1 – 20)"));
+        districtField = buildTextField("Enter district number...");
+        districtField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        districtField.getDocument().addDocumentListener(new LiveDocListener(this::applyFilters));
+        outer.add(padded(districtField));
+        outer.add(Box.createVerticalStrut(4));
+        outer.add(divider());
+
+        // ── Gender ───────────────────────────────────────────────────────
+        outer.add(sectionLabel("Gender"));
+        cbMale   = styledCheckBox("Male");
+        cbFemale = styledCheckBox("Female");
+        cbMale.setSelected(true);
+        cbFemale.setSelected(true);
+        cbMale.addActionListener(e -> applyFilters());
+        cbFemale.addActionListener(e -> applyFilters());
+        outer.add(padded(cbMale));
+        outer.add(padded(cbFemale));
 
         outer.add(Box.createVerticalGlue());
         return outer;
@@ -370,33 +402,71 @@ class Program extends JFrame {
 
     // ── Filter logic ──────────────────────────────────────────────────────
     private void applyFilters() {
-        String query  = nameField    == null ? "" : nameField.getText().trim().toLowerCase();
-        String status = statusFilter == null ? "All" : (String) statusFilter.getSelectedItem();
-        String gender = genderFilter == null ? "All" : (String) genderFilter.getSelectedItem();
-        int parsedMin = 0, parsedMax = 120;
+        final String query = nameField == null ? "" : nameField.getText().trim().toLowerCase();
+
+        int parsedMin = 18, parsedMax = 70;
         if (ageMinField != null && !ageMinField.getText().trim().isEmpty()) {
-            try { parsedMin = Integer.parseInt(ageMinField.getText().trim()); } catch (NumberFormatException ignored) {}
+            try { parsedMin = Math.max(18, Math.min(70, Integer.parseInt(ageMinField.getText().trim()))); }
+            catch (NumberFormatException ignored) {}
         }
         if (ageMaxField != null && !ageMaxField.getText().trim().isEmpty()) {
-            try { parsedMax = Integer.parseInt(ageMaxField.getText().trim()); } catch (NumberFormatException ignored) {}
+            try { parsedMax = Math.max(18, Math.min(70, Integer.parseInt(ageMaxField.getText().trim()))); }
+            catch (NumberFormatException ignored) {}
         }
         final int minAge = parsedMin;
         final int maxAge = parsedMax;
 
+        final int districtNum;
+        int tmp = -1;
+        if (districtField != null && !districtField.getText().trim().isEmpty()) {
+            try {
+                int v = Integer.parseInt(districtField.getText().trim());
+                if (v >= 1 && v <= 20) tmp = v;
+            } catch (NumberFormatException ignored) {}
+        }
+        districtNum = tmp;
+
+        boolean showResident    = cbResident    == null || cbResident.isSelected();
+        boolean showNonResident = cbNonResident == null || cbNonResident.isSelected();
+        boolean showMale        = cbMale        == null || cbMale.isSelected();
+        boolean showFemale      = cbFemale      == null || cbFemale.isSelected();
+
         List<String[]> filtered = allRows.stream().filter(row -> {
-            // Name search: first name + last name only
             if (!query.isEmpty()) {
                 String hay = (row[0] + " " + row[1]).toLowerCase();
                 if (!hay.contains(query)) return false;
             }
-            if (!status.equals("All") && !row[5].equalsIgnoreCase(status)) return false;
-            if (!gender.equals("All") && !row[7].equalsIgnoreCase(gender)) return false;
             try {
                 int age = Integer.parseInt(row[4].trim());
                 if (age < minAge || age > maxAge) return false;
             } catch (NumberFormatException ignored) {}
+
+            boolean isResident = row[5].equalsIgnoreCase("Resident");
+            if (isResident  && !showResident)    return false;
+            if (!isResident && !showNonResident) return false;
+
+            if (districtNum != -1) {
+                try {
+                    if (Integer.parseInt(row[6].trim()) != districtNum) return false;
+                } catch (NumberFormatException ignored) { return false; }
+            }
+
+            boolean isMale = row[7].equalsIgnoreCase("Male");
+            if (isMale  && !showMale)   return false;
+            if (!isMale && !showFemale) return false;
+
             return true;
         }).collect(Collectors.toList());
+
+        boolean az = sortAZ != null && sortAZ.isSelected();
+        boolean za = sortZA != null && sortZA.isSelected();
+        if (az || za) {
+            filtered.sort((a, b) -> {
+                String la = a[1].toLowerCase();
+                String lb = b[1].toLowerCase();
+                return az ? la.compareTo(lb) : lb.compareTo(la);
+            });
+        }
 
         tableModel.setRowCount(0);
         for (String[] r : filtered) tableModel.addRow(r);
@@ -410,11 +480,27 @@ class Program extends JFrame {
 
     private void resetFilters() {
         nameField.setText("");
-        statusFilter.setSelectedIndex(0);
-        genderFilter.setSelectedIndex(0);
+        sortAZ.setSelected(false);
+        sortZA.setSelected(false);
         ageMinField.setText("");
         ageMaxField.setText("");
+        cbResident.setSelected(true);
+        cbNonResident.setSelected(true);
+        districtField.setText("");
+        cbMale.setSelected(true);
+        cbFemale.setSelected(true);
         applyFilters();
+    }
+    private JCheckBox styledCheckBox(String text) {
+        JCheckBox cb = new JCheckBox(text);
+        cb.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        cb.setForeground(TEXT_MAIN);
+        cb.setBackground(SIDEBAR_BG);
+        cb.setOpaque(true);
+        cb.setFocusPainted(false);
+        cb.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        cb.setAlignmentX(LEFT_ALIGNMENT);
+        return cb;
     }
 
     // ── UI helpers ────────────────────────────────────────────────────────
@@ -487,4 +573,12 @@ class Program extends JFrame {
         d.setAlignmentX(LEFT_ALIGNMENT);
         return d;
     }
+}
+
+class LiveDocListener implements javax.swing.event.DocumentListener {
+    private final Runnable onChange;
+    LiveDocListener(Runnable onChange) { this.onChange = onChange; }
+    public void insertUpdate (javax.swing.event.DocumentEvent e) { onChange.run(); }
+    public void removeUpdate (javax.swing.event.DocumentEvent e) { onChange.run(); }
+    public void changedUpdate(javax.swing.event.DocumentEvent e) { onChange.run(); }
 }
