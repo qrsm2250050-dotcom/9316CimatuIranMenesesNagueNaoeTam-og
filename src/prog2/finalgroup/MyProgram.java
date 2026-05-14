@@ -16,7 +16,10 @@ public class MyProgram {
     public static void main(String[] args) {
         List<String[]> data;
         try {
-            data = CSVReader.readCSV("res/data.csv");
+            // Load citizens via MyProgramUtility, then convert to String[] rows
+            // that the UI table understands.
+            List<Citizen> citizens = MyProgramUtility.loadCitizens("res/data.csv");
+            data = MyProgramUtility.citizensToRows(citizens);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null,
                     "Could not read data.csv:\n" + e.getMessage(),
@@ -25,39 +28,6 @@ public class MyProgram {
         }
         final List<String[]> finalData = data;
         SwingUtilities.invokeLater(() -> new Program(finalData).setVisible(true));
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  CSV Reader
-// ─────────────────────────────────────────────────────────────────────────────
-class CSVReader {
-    public static List<String[]> readCSV(String filename) throws Exception {
-        List<String[]> rows = new ArrayList<>();
-        BufferedReader br = new BufferedReader(new FileReader(filename));
-        String line;
-        while ((line = br.readLine()) != null) {
-            if (line.trim().isEmpty()) continue;
-            String[] values = parseCSVLine(line);
-            for (int i = 0; i < values.length; i++) values[i] = values[i].trim();
-            if (values.length >= 8) rows.add(values);
-        }
-        br.close();
-        return rows;
-    }
-
-    private static String[] parseCSVLine(String line) {
-        List<String> tokens = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean inQuotes = false;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (c == '"') { inQuotes = !inQuotes; }
-            else if (c == ',' && !inQuotes) { tokens.add(current.toString()); current.setLength(0); }
-            else { current.append(c); }
-        }
-        tokens.add(current.toString());
-        return tokens.toArray(new String[0]);
     }
 }
 
@@ -149,7 +119,6 @@ class Program extends JFrame {
 
     // Gender
     private JCheckBox cbMale, cbFemale;
-
 
     // Sidebar toggle
     private JPanel sidebarPanel;
@@ -491,6 +460,7 @@ class Program extends JFrame {
         cbFemale.setSelected(true);
         applyFilters();
     }
+
     private JCheckBox styledCheckBox(String text) {
         JCheckBox cb = new JCheckBox(text);
         cb.setFont(new Font("SansSerif", Font.PLAIN, 13));

@@ -1,5 +1,7 @@
 package prog2.finalgroup;
+
 import java.lang.Comparable;
+
 public class Citizen implements Comparable<Citizen> {
     private String fullName;
     private String email;
@@ -12,35 +14,53 @@ public class Citizen implements Comparable<Citizen> {
 
     public Citizen() {
         fullName = "";
-        email = "";
-        address = "";
-        age = 0;
+        email    = "";
+        address  = "";
+        age      = 0;
         resident = true;
         district = 1;
-        gender = 'M';
-        id = 0;
+        gender   = 'M';
+        id       = 0;
     }
 
-    public Citizen(String fullName, String email, String address, int age, boolean resident, int district, char gender, int id) {
+    public Citizen(String fullName, String email, String address,
+                   int age, boolean resident, int district, char gender, int id) {
         this.fullName = fullName;
-        this.email = email;
-        this.address = address;
-        this.age = age;
+        this.email    = email;
+        this.address  = address;
+        this.age      = age;
         this.resident = resident;
         this.district = district;
-        this.gender = gender;
-        this.id = id;
-    }
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-    public String getFullName() {
-        return fullName;
-    }
-    public int getId() {
-        return id;
+        this.gender   = gender;
+        this.id       = id;
     }
 
+    // ── Setters ──────────────────────────────────────────────────────────────
+    public void setFullName(String fullName) { this.fullName = fullName; }
+
+    // ── Getters ──────────────────────────────────────────────────────────────
+    public String  getFullName() { return fullName; }
+    public String  getEmail()    { return email; }
+    public String  getAddress()  { return address; }
+    public int     getAge()      { return age; }
+    public boolean isResident()  { return resident; }
+    public int     getDistrict() { return district; }
+    public char    getGender()   { return gender; }
+    public int     getId()       { return id; }
+
+
+    public String getFirstName() {
+        int idx = fullName.indexOf(' ');
+        return idx == -1 ? fullName : fullName.substring(0, idx);
+    }
+
+
+    public String getLastName() {
+        int idx = fullName.indexOf(' ');
+        return idx == -1 ? "" : fullName.substring(idx + 1);
+    }
+
+    // ── Comparable / toString ────────────────────────────────────────────────
     @Override
     public int compareTo(Citizen other) {
         return Integer.compare(this.id, other.id);

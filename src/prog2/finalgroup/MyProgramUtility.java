@@ -3,60 +3,98 @@ package prog2.finalgroup;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class MyProgramUtility {
-    private static String filePath = "res/data.csv";
-    private static String line = "";
-    private static String firstName;
-    private static String lastName;
-    private static String email;
-    private static String address;
-    private static int age;
-    private static boolean resident;
-    private static int district;
-    private static char gender;
-    private static long lineCount;
-    private static int id;
 
-    public static void separateValues() {
-        try {
-            lineCount = Files.lines(Paths.get("data.csv")).count();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private static final String DEFAULT_PATH = "res/data.csv";
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    public static List<Citizen> loadCitizens() throws Exception {
+        return loadCitizens(DEFAULT_PATH);
+    }
+
+    static List<Citizen> loadCitizens(String filePath) throws Exception {
+        List<Citizen> citizens = new ArrayList<>();
+
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            List<Citizen> citizens = new ArrayList<>();
-            for (int i = 1; i <= lineCount; i++) {
-                while ((line = br.readLine()) != null) {
-                    String[] values = line.split(",");
-                    firstName = values[1];
-                    lastName = values[2];
-                    email = values[3];
-                    address = values[4];
-                    age = Integer.parseInt(values[5]);
+            String line;
+            int id = 1;
 
-                    if (values[6].equalsIgnoreCase("Resident")) {
-                        resident = true;
-                    } else if (values[6].equalsIgnoreCase("Non-Resident")) {
-                        resident = false;
-                    }
+            while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) continue;
 
-                    district = Integer.parseInt(values[7]);
+                String[] values = parseCSVLine(line);
 
-                    gender = values[8].charAt(0);
+                // Trim every field
+                for (int i = 0; i < values.length; i++) values[i] = values[i].trim();
 
-                    id = i;
+                // Need at least 8 columns (indices 0-7)
+                if (values.length < 8) continue;
 
-                    citizens.add(new Citizen(firstName + " " + lastName, email, address, age, resident, district, gender, id));
+                try {
+                    String firstName = values[0];
+                    String lastName  = values[1];
+                    String email     = values[2];
+                    String address   = values[3];
+                    int    age       = Integer.parseInt(values[4]);
+                    boolean resident = values[5].equalsIgnoreCase("Resident");
+                    int    district  = Integer.parseInt(values[6]);
+                    char   gender    = values[7].isEmpty() ? 'M' : Character.toUpperCase(values[7].charAt(0));
+
+                    citizens.add(new Citizen(
+                            firstName + " " + lastName,
+                            email, address, age, resident, district, gender, id++
+                    ));
+                } catch (NumberFormatException e) {
+                    // Skip rows with unparseable numbers (e.g. header row)
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
+
+        return citizens;
+    }
+
+    public static String[] citizenToRow(Citizen c) {
+        return new String[]{
+                c.getFirstName(),
+                c.getLastName(),
+                c.getEmail(),
+                c.getAddress(),
+                String.valueOf(c.getAge()),
+                c.isResident() ? "Resident" : "Non-Resident",
+                String.valueOf(c.getDistrict()),
+                c.getGender() == 'F' ? "Female" : "Male"
+        };
+    }
+
+    public static List<String[]> citizensToRows(List<Citizen> citizens) {
+        List<String[]> rows = new ArrayList<>();
+        for (Citizen c : citizens) rows.add(citizenToRow(c));
+        return rows;
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private static String[] parseCSVLine(String line) {
+        List<String> tokens = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                tokens.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+        tokens.add(current.toString());
+        return tokens.toArray(new String[0]);
     }
 }
