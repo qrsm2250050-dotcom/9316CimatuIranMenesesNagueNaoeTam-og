@@ -1,5 +1,5 @@
 package prog2.finalgroup;
-import java.lang.Comparable;
+
 public class Citizen implements Comparable<Citizen> {
     private String fullName;
     private String email;
@@ -8,7 +8,6 @@ public class Citizen implements Comparable<Citizen> {
     private boolean resident;
     private int district;
     private char gender;
-    private int id;
 
     public Citizen() {
         fullName = "";
@@ -18,10 +17,10 @@ public class Citizen implements Comparable<Citizen> {
         resident = true;
         district = 1;
         gender = 'M';
-        id = 0;
     }
 
-    public Citizen(String fullName, String email, String address, int age, boolean resident, int district, char gender, int id) {
+    public Citizen(String fullName, String email, String address, int age,
+                   boolean resident, int district, char gender) {
         this.fullName = fullName;
         this.email = email;
         this.address = address;
@@ -29,51 +28,79 @@ public class Citizen implements Comparable<Citizen> {
         this.resident = resident;
         this.district = district;
         this.gender = gender;
-        this.id = id;
-    }
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
     }
 
     public String getFullName() {
         return fullName;
     }
 
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
     public String getEmail() {
         return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getAddress() {
         return address;
     }
 
-    public boolean isResident() {
-        return resident;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public char getGender() {
-        return gender;
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public int getAge() {
         return age;
     }
 
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public boolean isResident() {
+        return resident;
+    }
+
+    public void setResident(boolean resident) {
+        this.resident = resident;
+    }
+
     public int getDistrict() {
         return district;
     }
 
+    public void setDistrict(int district) {
+        this.district = district;
+    }
+
+    public char getGender() {
+        return gender;
+    }
+
+    public void setGender(char gender) {
+        this.gender = gender;
+    }
+
+    public String getResidencyLabel() {
+        return resident ? "Resident" : "Non-Resident";
+    }
+
+    public String getGenderLabel() {
+        return gender == 'M' ? "Male" : "Female";
+    }
+
     @Override
     public int compareTo(Citizen other) {
-        return Integer.compare(this.id, other.id);
+        return this.fullName.compareToIgnoreCase(other.fullName);
     }
 
     @Override
     public String toString() {
-        return "ID: " + id + ", Name: " + fullName;
+        return fullName + " (" + getGenderLabel() + ", age " + age + ", District " + district + ")";
     }
 }

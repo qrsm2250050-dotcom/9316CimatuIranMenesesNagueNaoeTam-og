@@ -1,179 +1,159 @@
 package prog2.finalgroup;
 
 import javax.swing.*;
-import javax.swing.table.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
-import java.io.*;
-import java.util.*;
 import java.util.List;
-import java.util.stream.*;
+import java.util.stream.Collectors;
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Entry point
-// ─────────────────────────────────────────────────────────────────────────────
-public class MyProgram {
-    public static void main(String[] args) {
-        // Load data from CSV first
-        List<String[]> data;
-        try {
-            data = CSVReader.readCSV("res/data.csv");
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(null,
-                    "Could not read data.csv:\n" + e.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        // Launch GUI on the Event Dispatch Thread
-        final List<String[]> finalData = data;
-        SwingUtilities.invokeLater(() -> {
-            Program window = new Program(finalData);
-            window.setVisible(true);
-        });
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  CSV Reader  — reads data.csv into a List<String[]>
-//  Expected columns (tab or comma separated):
-//    FirstName, LastName, Email, Address, Age, Status, District, Gender
-// ─────────────────────────────────────────────────────────────────────────────
-class CSVReader {
-    public static List<String[]> readCSV(String filename) throws Exception {
-        List<String[]> rows = new ArrayList<>();
-
-        BufferedReader br = new BufferedReader(new FileReader(filename));
-        String line;
-
-        while ((line = br.readLine()) != null) {
-            if (line.trim().isEmpty()) continue;
-
-            String[] values = parseCSVLine(line);
-
-            // Trim whitespace from each field
-            for (int i = 0; i < values.length; i++) {
-                values[i] = values[i].trim();
-            }
-
-            if (values.length >= 8) {
-                rows.add(values);
-            }
-        }
-        br.close();
-        return rows;
-    }
-
-    // Parses a CSV line respecting quoted fields
-    // e.g. Colleen,Joyner,"Ap #697, Nullam Road",30 → 4 tokens, not 5
-    private static String[] parseCSVLine(String line) {
-        List<String> tokens = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean inQuotes = false;
-
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-
-            if (c == '"') {
-                inQuotes = !inQuotes; // toggle quote mode, don't add the quote char
-            } else if (c == ',' && !inQuotes) {
-                tokens.add(current.toString()); // comma outside quotes = new field
-                current.setLength(0);
-            } else {
-                current.append(c);
-            }
-        }
-        tokens.add(current.toString()); // add last field
-
-        return tokens.toArray(new String[0]);
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Program  — the main JFrame GUI
-// ─────────────────────────────────────────────────────────────────────────────
-class Program extends JFrame {
-
-    // ── Column names matching the CSV layout ──────────────────────────────
-    private static final String[] COLUMNS = {
-            "First Name", "Last Name", "Email", "Address", "Age", "Status", "District", "Gender"
+public class MyProgram extends JFrame {
+    private static final String[] TABLE_COLUMNS = {
+            "Full Name", "Email", "Address", "Age", "Residency", "District", "Gender"
     };
 
-    // ── Colours ───────────────────────────────────────────────────────────
-    private static final Color BG        = new Color(0xF5F4F0);
-    private static final Color PANEL_BG  = new Color(0xFFFFFF);
+    private static final Color BG = new Color(0xF5F4F0);
+    private static final Color PANEL_BG = new Color(0xFFFFFF);
     private static final Color HEADER_BG = new Color(0x1A1A2E);
-    private static final Color ACCENT    = new Color(0x4F7CAC);
-    private static final Color ACCENT2   = new Color(0xC84B31);
-    private static final Color ROW_ODD   = new Color(0xFFFFFF);
-    private static final Color ROW_EVEN  = new Color(0xF0F4FA);
-    private static final Color SEL_BG    = new Color(0xD0E4F7);
-    private static final Color SEL_FG    = new Color(0x1A1A2E);
+    private static final Color ACCENT = new Color(0x4F7CAC);
+    private static final Color ACCENT2 = new Color(0xC84B31);
+    private static final Color ROW_ODD = new Color(0xFFFFFF);
+    private static final Color ROW_EVEN = new Color(0xF0F4FA);
+    private static final Color SEL_BG = new Color(0xD0E4F7);
+    private static final Color SEL_FG = new Color(0x1A1A2E);
     private static final Color TEXT_MAIN = new Color(0x1A1A2E);
-    private static final Color TEXT_MUTED= new Color(0x7A7A9A);
-    private static final Color BORDER_C  = new Color(0xDDDDE8);
+    private static final Color TEXT_MUTED = new Color(0x7A7A9A);
+    private static final Color BORDER_C = new Color(0xDDDDE8);
 
-    // ── State ─────────────────────────────────────────────────────────────
-    private final List<String[]> allRows;
+    private final List<Citizen> allCitizens;
     private DefaultTableModel tableModel;
     private JTable table;
     private JLabel statusLabel;
 
-    // Filter widgets
     private JTextField searchField;
     private JComboBox<String> statusFilter;
     private JComboBox<String> genderFilter;
-    private JSpinner ageMin, ageMax;
+    private JSpinner ageMin;
+    private JSpinner ageMax;
 
-    // ── Constructor ───────────────────────────────────────────────────────
-    public Program(List<String[]> data) {
-        this.allRows = data;
+    public MyProgram(List<Citizen> citizens) {
+        this.allCitizens = citizens;
 
-        setTitle("Resident Database");
+        setTitle("Community Citizen Database");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1200, 740);
         setMinimumSize(new Dimension(900, 560));
         setLocationRelativeTo(null);
         getContentPane().setBackground(BG);
-        setLayout(new BorderLayout(0, 0));
+        setLayout(new BorderLayout());
 
-        add(buildHeader(),    BorderLayout.NORTH);
+        setJMenuBar(buildMenuBar());
+        add(buildHeader(), BorderLayout.NORTH);
         add(buildFilterBar(), BorderLayout.WEST);
-        add(buildTablePanel(),BorderLayout.CENTER);
+        add(buildTablePanel(), BorderLayout.CENTER);
         add(buildStatusBar(), BorderLayout.SOUTH);
 
-        applyFilters();
+        refreshTable(allCitizens);
     }
 
-    // ── Header ────────────────────────────────────────────────────────────
-    private JPanel buildHeader() {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setBackground(HEADER_BG);
-        p.setBorder(BorderFactory.createEmptyBorder(18, 28, 18, 28));
+    public static void main(String[] args) {
+        List<Citizen> citizens;
+        try {
+            citizens = MyProgramUtility.loadCitizens();
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null,
+                    "Could not read res/data.csv:\n" + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        JLabel title = new JLabel("Resident Database");
+        if (citizens.isEmpty()) {
+            JOptionPane.showMessageDialog(null,
+                    "No citizen records were loaded from res/data.csv.",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        List<Citizen> finalCitizens = citizens;
+        SwingUtilities.invokeLater(() -> {
+            MyProgram window = new MyProgram(finalCitizens);
+            window.setVisible(true);
+        });
+    }
+
+    private JMenuBar buildMenuBar() {
+        JMenuBar menuBar = new JMenuBar();
+
+        JMenu reportsMenu = new JMenu("Reports");
+        reportsMenu.add(createReportItem("Gender Distribution",
+                () -> MyProgramUtility.formatGenderReport(allCitizens)));
+        reportsMenu.add(createReportItem("Residents per District",
+                () -> MyProgramUtility.formatDistrictReport(allCitizens)));
+        reportsMenu.add(createReportItem("Senior Citizens (60+)",
+                () -> MyProgramUtility.formatSeniorReport(allCitizens)));
+        reportsMenu.add(createReportItem("Average Age",
+                () -> MyProgramUtility.formatAverageAgeReport(allCitizens)));
+        reportsMenu.add(createReportItem("Names Sorted A–Z",
+                () -> MyProgramUtility.formatSortedNamesReport(allCitizens)));
+        reportsMenu.add(createReportItem("Residents vs Non-Residents",
+                () -> MyProgramUtility.formatResidencyReport(allCitizens)));
+
+        JMenu fileMenu = new JMenu("File");
+        JMenuItem exitItem = new JMenuItem("Exit");
+        exitItem.addActionListener(e -> System.exit(0));
+        fileMenu.add(exitItem);
+
+        menuBar.add(fileMenu);
+        menuBar.add(reportsMenu);
+        return menuBar;
+    }
+
+    private JMenuItem createReportItem(String title, ReportSupplier supplier) {
+        JMenuItem item = new JMenuItem(title);
+        item.addActionListener(e -> showReport(title, supplier.get()));
+        return item;
+    }
+
+    private void showReport(String title, String message) {
+        JTextArea area = new JTextArea(message);
+        area.setEditable(false);
+        area.setFont(new Font("Monospaced", Font.PLAIN, 13));
+        area.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        JScrollPane scroll = new JScrollPane(area);
+        scroll.setPreferredSize(new Dimension(480, 360));
+        JOptionPane.showMessageDialog(this, scroll, title, JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private JPanel buildHeader() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(HEADER_BG);
+        panel.setBorder(BorderFactory.createEmptyBorder(18, 28, 18, 28));
+
+        JLabel title = new JLabel("Community Citizen Database");
         title.setFont(new Font("Georgia", Font.BOLD, 22));
         title.setForeground(Color.WHITE);
 
-        JLabel sub = new JLabel(allRows.size() + " records loaded from data.csv");
-        sub.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        sub.setForeground(new Color(0xAABBDD));
+        JLabel subtitle = new JLabel(allCitizens.size() + " citizens loaded from res/data.csv");
+        subtitle.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        subtitle.setForeground(new Color(0xAABBDD));
 
         JPanel left = new JPanel();
         left.setOpaque(false);
         left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
         left.add(title);
         left.add(Box.createVerticalStrut(3));
-        left.add(sub);
+        left.add(subtitle);
 
         JButton resetBtn = styledButton("Reset Filters", ACCENT2);
         resetBtn.addActionListener(e -> resetFilters());
 
-        p.add(left,    BorderLayout.WEST);
-        p.add(resetBtn,BorderLayout.EAST);
-        return p;
+        panel.add(left, BorderLayout.WEST);
+        panel.add(resetBtn, BorderLayout.EAST);
+        return panel;
     }
 
-    // ── Filter sidebar ────────────────────────────────────────────────────
     private JPanel buildFilterBar() {
         JPanel outer = new JPanel();
         outer.setBackground(PANEL_BG);
@@ -185,13 +165,13 @@ class Program extends JFrame {
         searchField = roundTextField();
         searchField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
         searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate (javax.swing.event.DocumentEvent e) { applyFilters(); }
-            public void removeUpdate (javax.swing.event.DocumentEvent e) { applyFilters(); }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { applyFilters(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { applyFilters(); }
             public void changedUpdate(javax.swing.event.DocumentEvent e) { applyFilters(); }
         });
         outer.add(padded(searchField));
 
-        outer.add(sectionLabel("Status"));
+        outer.add(sectionLabel("Residency"));
         statusFilter = styledCombo(new String[]{"All", "Resident", "Non-Resident"});
         statusFilter.addActionListener(e -> applyFilters());
         outer.add(padded(statusFilter));
@@ -204,23 +184,27 @@ class Program extends JFrame {
         outer.add(sectionLabel("Age Range"));
         JPanel agePanel = new JPanel(new GridLayout(2, 2, 6, 4));
         agePanel.setOpaque(false);
-        agePanel.add(new JLabel("Min")); agePanel.add(new JLabel("Max"));
-        ageMin = new JSpinner(new SpinnerNumberModel(0,   0, 70, 1));
-        ageMax = new JSpinner(new SpinnerNumberModel(70, 0, 70, 1));
-        styleSpinner(ageMin); styleSpinner(ageMax);
+        agePanel.add(new JLabel("Min"));
+        agePanel.add(new JLabel("Max"));
+        ageMin = new JSpinner(new SpinnerNumberModel(0, 0, 100, 1));
+        ageMax = new JSpinner(new SpinnerNumberModel(100, 0, 100, 1));
+        styleSpinner(ageMin);
+        styleSpinner(ageMax);
         ageMin.addChangeListener(e -> applyFilters());
         ageMax.addChangeListener(e -> applyFilters());
-        agePanel.add(ageMin); agePanel.add(ageMax);
+        agePanel.add(ageMin);
+        agePanel.add(ageMax);
         outer.add(padded(agePanel));
-
         outer.add(Box.createVerticalGlue());
         return outer;
     }
 
-    // ── Table panel ───────────────────────────────────────────────────────
     private JPanel buildTablePanel() {
-        tableModel = new DefaultTableModel(COLUMNS, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+        tableModel = new DefaultTableModel(TABLE_COLUMNS, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
         };
 
         table = new JTable(tableModel);
@@ -232,7 +216,6 @@ class Program extends JFrame {
         table.setSelectionForeground(SEL_FG);
         table.setFillsViewportHeight(true);
 
-        // Header style
         JTableHeader header = table.getTableHeader();
         header.setFont(new Font("SansSerif", Font.BOLD, 12));
         header.setBackground(HEADER_BG);
@@ -240,93 +223,102 @@ class Program extends JFrame {
         header.setPreferredSize(new Dimension(0, 38));
         header.setReorderingAllowed(false);
 
-        // Column widths
-        int[] widths = {90, 100, 230, 240, 50, 110, 55, 70};
-        for (int i = 0; i < widths.length; i++)
+        int[] widths = {140, 220, 260, 50, 110, 60, 70};
+        for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
 
-        // Cell renderer: alternating rows + green/red status
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(
-                    JTable t, Object val, boolean sel, boolean foc, int row, int col) {
-                super.getTableCellRendererComponent(t, val, sel, foc, row, col);
+                    JTable t, Object value, boolean selected, boolean focus, int row, int col) {
+                super.getTableCellRendererComponent(t, value, selected, focus, row, col);
                 setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-                setFont(new Font("SansSerif", Font.PLAIN, 13));
-                if (!sel) {
+                if (!selected) {
                     setBackground(row % 2 == 0 ? ROW_ODD : ROW_EVEN);
                     setForeground(TEXT_MAIN);
                 }
-                // Colour-code Status column
-                if (col == 5 && !sel) {
-                    String v = val == null ? "" : val.toString();
-                    setForeground(v.equals("Resident")
-                            ? new Color(0x2E7D32)
-                            : new Color(0xB71C1C));
+                if (col == 4 && !selected) {
+                    String text = value == null ? "" : value.toString();
+                    setForeground("Resident".equals(text)
+                            ? new Color(0x2E7D32) : new Color(0xB71C1C));
                 }
-                setHorizontalAlignment(col == 4 || col == 6 ? CENTER : LEFT);
+                setHorizontalAlignment(col == 3 || col == 5 ? SwingConstants.CENTER : SwingConstants.LEFT);
                 return this;
             }
         });
 
-        // Allow clicking column headers to sort
         table.setRowSorter(new TableRowSorter<>(tableModel));
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setBackground(PANEL_BG);
 
-        JPanel p = new JPanel(new BorderLayout());
-        p.add(scroll);
-        return p;
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(scroll);
+        return panel;
     }
 
-    // ── Status bar ────────────────────────────────────────────────────────
     private JPanel buildStatusBar() {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setBackground(HEADER_BG);
-        p.setBorder(BorderFactory.createEmptyBorder(6, 20, 6, 20));
-        statusLabel = new JLabel("Loading…");
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(HEADER_BG);
+        panel.setBorder(BorderFactory.createEmptyBorder(6, 20, 6, 20));
+        statusLabel = new JLabel();
         statusLabel.setForeground(new Color(0xAABBDD));
         statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        p.add(statusLabel, BorderLayout.WEST);
-        return p;
+        panel.add(statusLabel, BorderLayout.WEST);
+        return panel;
     }
 
-    // ── Filter logic ──────────────────────────────────────────────────────
     private void applyFilters() {
-        String query  = searchField   == null ? "" : searchField.getText().trim().toLowerCase();
-        String status = statusFilter  == null ? "All" : (String) statusFilter.getSelectedItem();
-        String gender = genderFilter  == null ? "All" : (String) genderFilter.getSelectedItem();
-        int minAge = ageMin == null ? 0   : (int) ageMin.getValue();
-        int maxAge = ageMax == null ? 150 : (int) ageMax.getValue();
+        String query = searchField == null ? "" : searchField.getText().trim().toLowerCase();
+        String status = statusFilter == null ? "All" : (String) statusFilter.getSelectedItem();
+        String gender = genderFilter == null ? "All" : (String) genderFilter.getSelectedItem();
+        int minAge = ageMin == null ? 0 : (int) ageMin.getValue();
+        int maxAge = ageMax == null ? 100 : (int) ageMax.getValue();
 
-        List<String[]> filtered = allRows.stream().filter(row -> {
-            // text search across name, email, address
-            if (!query.isEmpty()) {
-                String hay = row[0] + " " + row[1] + " " + row[2] + " " + row[3];
-                if (!hay.toLowerCase().contains(query)) return false;
+        List<Citizen> filtered = allCitizens.stream()
+                .filter(c -> matchesFilters(c, query, status, gender, minAge, maxAge))
+                .collect(Collectors.toList());
+
+        refreshTable(filtered);
+    }
+
+    private boolean matchesFilters(Citizen c, String query, String status,
+                                   String gender, int minAge, int maxAge) {
+        if (!query.isEmpty()) {
+            String haystack = (c.getFullName() + " " + c.getEmail() + " " + c.getAddress()).toLowerCase();
+            if (!haystack.contains(query)) {
+                return false;
             }
-            // status filter  (col 5)
-            if (!status.equals("All") && !row[5].equalsIgnoreCase(status)) return false;
-            // gender filter  (col 7)
-            if (!gender.equals("All") && !row[7].equalsIgnoreCase(gender)) return false;
-            // age filter     (col 4)
-            try {
-                int age = Integer.parseInt(row[4].trim());
-                if (age < minAge || age > maxAge) return false;
-            } catch (NumberFormatException ignored) {}
-            return true;
-        }).collect(Collectors.toList());
+        }
+        if (!"All".equals(status) && !c.getResidencyLabel().equalsIgnoreCase(status)) {
+            return false;
+        }
+        if (!"All".equals(gender) && !c.getGenderLabel().equalsIgnoreCase(gender)) {
+            return false;
+        }
+        return c.getAge() >= minAge && c.getAge() <= maxAge;
+    }
 
+    private void refreshTable(List<Citizen> citizens) {
         tableModel.setRowCount(0);
-        for (String[] r : filtered) tableModel.addRow(r);
+        for (Citizen c : citizens) {
+            tableModel.addRow(new Object[]{
+                    c.getFullName(),
+                    c.getEmail(),
+                    c.getAddress(),
+                    c.getAge(),
+                    c.getResidencyLabel(),
+                    c.getDistrict(),
+                    c.getGenderLabel()
+            });
+        }
 
-        long residents    = filtered.stream().filter(r -> r[5].equalsIgnoreCase("Resident")).count();
-        long nonResidents = filtered.stream().filter(r -> r[5].equalsIgnoreCase("Non-Resident")).count();
-        statusLabel.setText(filtered.size() + " records shown  ·  "
-                + residents + " Residents  ·  "
-                + nonResidents + " Non-Residents");
+        int[] residency = MyProgramUtility.countByResidency(citizens);
+        statusLabel.setText(citizens.size() + " records shown  ·  "
+                + residency[0] + " Residents  ·  "
+                + residency[1] + " Non-Residents");
     }
 
     private void resetFilters() {
@@ -334,63 +326,67 @@ class Program extends JFrame {
         statusFilter.setSelectedIndex(0);
         genderFilter.setSelectedIndex(0);
         ageMin.setValue(0);
-        ageMax.setValue(70);
+        ageMax.setValue(100);
         applyFilters();
     }
 
-    // ── UI helpers ────────────────────────────────────────────────────────
     private JLabel sectionLabel(String text) {
-        JLabel l = new JLabel(text.toUpperCase());
-        l.setFont(new Font("SansSerif", Font.BOLD, 10));
-        l.setForeground(TEXT_MUTED);
-        l.setBorder(BorderFactory.createEmptyBorder(14, 14, 2, 14));
-        l.setAlignmentX(LEFT_ALIGNMENT);
-        return l;
+        JLabel label = new JLabel(text.toUpperCase());
+        label.setFont(new Font("SansSerif", Font.BOLD, 10));
+        label.setForeground(TEXT_MUTED);
+        label.setBorder(BorderFactory.createEmptyBorder(14, 14, 2, 14));
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return label;
     }
 
     private JTextField roundTextField() {
-        JTextField f = new JTextField();
-        f.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        f.setForeground(TEXT_MAIN);
-        f.setBorder(BorderFactory.createCompoundBorder(
+        JTextField field = new JTextField();
+        field.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        field.setForeground(TEXT_MAIN);
+        field.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(BORDER_C, 1, true),
                 BorderFactory.createEmptyBorder(4, 8, 4, 8)));
-        return f;
+        return field;
     }
 
     private JComboBox<String> styledCombo(String[] items) {
-        JComboBox<String> c = new JComboBox<>(items);
-        c.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        c.setBackground(Color.WHITE);
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
-        return c;
+        JComboBox<String> combo = new JComboBox<>(items);
+        combo.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        combo.setBackground(Color.WHITE);
+        combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
+        return combo;
     }
 
-    private void styleSpinner(JSpinner s) {
-        s.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        ((JSpinner.DefaultEditor) s.getEditor()).getTextField()
+    private void styleSpinner(JSpinner spinner) {
+        spinner.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        ((JSpinner.DefaultEditor) spinner.getEditor()).getTextField()
                 .setFont(new Font("SansSerif", Font.PLAIN, 13));
     }
 
     private JButton styledButton(String text, Color bg) {
-        JButton b = new JButton(text);
-        b.setFont(new Font("SansSerif", Font.BOLD, 12));
-        b.setBackground(bg);
-        b.setForeground(Color.WHITE);
-        b.setFocusPainted(false);
-        b.setBorderPainted(false);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        b.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
-        return b;
+        JButton button = new JButton(text);
+        button.setFont(new Font("SansSerif", Font.BOLD, 12));
+        button.setBackground(bg);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
+        return button;
     }
 
-    private JPanel padded(JComponent c) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setOpaque(false);
-        p.setBorder(BorderFactory.createEmptyBorder(4, 12, 2, 12));
-        p.add(c);
-        p.setAlignmentX(LEFT_ALIGNMENT);
-        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
-        return p;
+    private JPanel padded(JComponent component) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+        panel.setBorder(BorderFactory.createEmptyBorder(4, 12, 2, 12));
+        panel.add(component);
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+        return panel;
+    }
+
+    @FunctionalInterface
+    private interface ReportSupplier {
+        String get();
     }
 }

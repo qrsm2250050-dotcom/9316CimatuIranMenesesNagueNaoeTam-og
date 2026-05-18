@@ -3,106 +3,183 @@ package prog2.finalgroup;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-
+import java.util.Map;
 
 public class MyProgramUtility {
-    private static String filePath = "res/data.csv";
-    private static String line = "";
-    private static String firstName;
-    private static String lastName;
-    private static String email;
-    private static String address;
-    private static int age;
-    private static boolean resident;
-    private static int district;
-    private static char gender;
-    private static long lineCount;
-    private static int id;
-    public static List<Citizen> citizens = new ArrayList<>();
+    private static final String FILE_PATH = "res/data.csv";
 
-    public static List<Citizen> separateValues() {
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+    public static List<Citizen> loadCitizens() throws IOException {
+        List<Citizen> citizens = new ArrayList<>();
 
+        try (BufferedReader br = new BufferedReader(new FileReader(FILE_PATH))) {
             String line;
-
             while ((line = br.readLine()) != null) {
-                String[] values = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
-                for (int i = 0; i < values.length; i++) {
-                    values[i] = values[i].replace("\"", "").trim();
+                if (line.trim().isEmpty()) {
+                    continue;
                 }
-                String firstName = values[0].trim();
-                String lastName = values[1].trim();
-                String email = values[2].trim();
-                String address = values[3].trim();
-                int age = Integer.parseInt(values[4].trim());
-                boolean resident = values[5].trim().equalsIgnoreCase("Resident");
-                int district = Integer.parseInt(values[6].trim());
-                char gender = values[7].trim().charAt(0);
-                int id = citizens.size() + 1;
-
-                Citizen citizen = new Citizen(firstName + " " + lastName, email, address, age, resident, district, gender, id);
-
-                citizens.add(citizen);
+                String[] values = parseCsvLine(line);
+                if (values.length < 8) {
+                    continue;
+                }
+                citizens.add(buildCitizen(values));
             }
-
-        } catch (IOException e) {
-            e.printStackTrace();
         }
-
         return citizens;
     }
 
-    class CSVReader {
-        public static List<String[]> readCSV(String filename) throws Exception {
-            List<String[]> rows = new ArrayList<>();
+    private static Citizen buildCitizen(String[] values) {
+        String lastName = values[0].trim();
+        String firstName = values[1].trim();
+        String fullName = firstName + " " + lastName;
+        String email = values[2].trim();
+        String address = values[3].trim();
+        int age = Integer.parseInt(values[4].trim());
 
-            BufferedReader br = new BufferedReader(new FileReader(filename));
-            String line;
+        boolean resident = values[5].trim().equalsIgnoreCase("Resident");
+        int district = Integer.parseInt(values[6].trim());
 
-            while ((line = br.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
+        String genderText = values[7].trim();
+        char gender = genderText.equalsIgnoreCase("Male") ? 'M' : 'F';
 
-                String[] values = parseCSVLine(line);
+        return new Citizen(fullName, email, address, age, resident, district, gender);
+    }
 
-                // Trim whitespace from each field
-                for (int i = 0; i < values.length; i++) {
-                    values[i] = values[i].trim();
-                }
+    private static String[] parseCsvLine(String line) {
+        List<String> tokens = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
 
-                if (values.length >= 8) {
-                    rows.add(values);
-                }
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                tokens.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(c);
             }
-            br.close();
-            return rows;
         }
+        tokens.add(current.toString());
+        return tokens.toArray(new String[0]);
+    }
 
-        // Parses a CSV line respecting quoted fields
-        // e.g. Colleen,Joyner,"Ap #697, Nullam Road",30 → 4 tokens, not 5
-        private static String[] parseCSVLine(String line) {
-            List<String> tokens = new ArrayList<>();
-            StringBuilder current = new StringBuilder();
-            boolean inQuotes = false;
-
-            for (int i = 0; i < line.length(); i++) {
-                char c = line.charAt(i);
-
-                if (c == '"') {
-                    inQuotes = !inQuotes; // toggle quote mode, don't add the quote char
-                } else if (c == ',' && !inQuotes) {
-                    tokens.add(current.toString()); // comma outside quotes = new field
-                    current.setLength(0);
-                } else {
-                    current.append(c);
-                }
+    public static int[] countByGender(List<Citizen> citizens) {
+        int males = 0;
+        int females = 0;
+        for (Citizen c : citizens) {
+            if (c.getGender() == 'M') {
+                males++;
+            } else {
+                females++;
             }
-            tokens.add(current.toString()); // add last field
-
-            return tokens.toArray(new String[0]);
         }
+        return new int[]{males, females};
+    }
+
+    public static Map<Integer, Integer> countResidentsPerDistrict(List<Citizen> citizens) {
+        Map<Integer, Integer> counts = new LinkedHashMap<>();
+        for (Citizen c : citizens) {
+            if (!c.isResident()) {
+                continue;
+            }
+            counts.merge(c.getDistrict(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    public static List<Citizen> getSeniorCitizens(List<Citizen> citizens) {
+        List<Citizen> seniors = new ArrayList<>();
+        for (Citizen c : citizens) {
+            if (c.getAge() >= 60) {
+                seniors.add(c);
+            }
+        }
+        return seniors;
+    }
+
+    public static double computeAverageAge(List<Citizen> citizens) {
+        if (citizens.isEmpty()) {
+            return 0;
+        }
+        int totalAge = 0;
+        for (Citizen c : citizens) {
+            totalAge += c.getAge();
+        }
+        return (double) totalAge / citizens.size();
+    }
+    public static List<Citizen> sortByFullName(List<Citizen> citizens) {
+        List<Citizen> sorted = new ArrayList<>(citizens);
+        Collections.sort(sorted);
+        return sorted;
+    }
+    public static int[] countByResidency(List<Citizen> citizens) {
+        int residents = 0;
+        int nonResidents = 0;
+        for (Citizen c : citizens) {
+            if (c.isResident()) {
+                residents++;
+            } else {
+                nonResidents++;
+            }
+        }
+        return new int[]{residents, nonResidents};
+    }
+
+    public static String formatGenderReport(List<Citizen> citizens) {
+        int[] counts = countByGender(citizens);
+        return "Male citizens: " + counts[0] + "\nFemale citizens: " + counts[1]
+                + "\nTotal: " + citizens.size();
+    }
+
+    public static String formatDistrictReport(List<Citizen> citizens) {
+        Map<Integer, Integer> perDistrict = countResidentsPerDistrict(citizens);
+        StringBuilder sb = new StringBuilder("Residents per district:\n");
+        for (Map.Entry<Integer, Integer> entry : perDistrict.entrySet()) {
+            sb.append("District ").append(entry.getKey())
+                    .append(": ").append(entry.getValue()).append("\n");
+        }
+        return sb.toString();
+    }
+
+    public static String formatSeniorReport(List<Citizen> citizens) {
+        List<Citizen> seniors = getSeniorCitizens(citizens);
+        StringBuilder sb = new StringBuilder("Senior citizens (age 60+): ")
+                .append(seniors.size()).append("\n\n");
+        int limit = Math.min(seniors.size(), 25);
+        for (int i = 0; i < limit; i++) {
+            sb.append(seniors.get(i).toString()).append("\n");
+        }
+        if (seniors.size() > limit) {
+            sb.append("... and ").append(seniors.size() - limit).append(" more.");
+        }
+        return sb.toString();
+    }
+
+    public static String formatAverageAgeReport(List<Citizen> citizens) {
+        return String.format("Average age of all citizens: %.2f years", computeAverageAge(citizens));
+    }
+
+    public static String formatSortedNamesReport(List<Citizen> citizens) {
+        List<Citizen> sorted = sortByFullName(citizens);
+        StringBuilder sb = new StringBuilder("Citizens sorted by name (A-Z):\n\n");
+        int limit = Math.min(sorted.size(), 30);
+        for (int i = 0; i < limit; i++) {
+            sb.append(sorted.get(i).getFullName()).append("\n");
+        }
+        if (sorted.size() > limit) {
+            sb.append("... and ").append(sorted.size() - limit).append(" more.");
+        }
+        return sb.toString();
+    }
+
+    public static String formatResidencyReport(List<Citizen> citizens) {
+        int[] counts = countByResidency(citizens);
+        return "Residents: " + counts[0] + "\nNon-Residents: " + counts[1]
+                + "\nTotal: " + citizens.size();
     }
 }
