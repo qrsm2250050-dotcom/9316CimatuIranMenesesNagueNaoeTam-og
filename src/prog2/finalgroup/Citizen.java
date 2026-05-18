@@ -34,11 +34,37 @@ public class Citizen implements Comparable<Citizen> {
     public void setFullName(String fullName) {
         this.fullName = fullName;
     }
+
     public String getFullName() {
         return fullName;
     }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public boolean isResident() {
+        return resident;
+    }
+
     public int getId() {
         return id;
+    }
+
+    public char getGender() {
+        return gender;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public int getDistrict() {
+        return district;
     }
 
     @Override
